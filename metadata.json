@@ -1,0 +1,6 @@
+{
+  "name": "VIGIL — Autonomous Astronaut Health Management System",
+  "description": "NASA Space Apps Challenge: Autonomous health monitoring, physiological trend analysis, explainable decision support, and interactive countermeasures for long-duration spaceflight.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
