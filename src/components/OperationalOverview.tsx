@@ -20,10 +20,12 @@ import {
   Pin,
   BookOpen,
   Info,
+  FileText,
 } from 'lucide-react';
 import { MetricReading, HealthAlert, SeverityLevel, SensorDevice } from '../types/health';
 import { calculateZScore } from '../utils/mathAndBaselines';
 import { generateTimeSeriesData } from '../data/initialState';
+import { avionicsAudio } from '../utils/audioFeedback';
 
 interface OperationalOverviewProps {
   metrics: MetricReading[];
@@ -55,6 +57,35 @@ export const OperationalOverview: React.FC<OperationalOverviewProps> = ({
   // Progressive Disclosure: Expanded domain modal & Clinical rationale modal
   const [expandedDomain, setExpandedDomain] = useState<DomainId | null>(null);
   const [showRationaleModal, setShowRationaleModal] = useState<boolean>(false);
+  const [showSymptomModal, setShowSymptomModal] = useState<boolean>(false);
+
+  // Subjective spaceflight symptoms state (SMS, SANS, Backache, Sleep)
+  const [symptomSms, setSymptomSms] = useState<number>(1);
+  const [symptomHeadache, setSymptomHeadache] = useState<number>(0);
+  const [symptomBackache, setSymptomBackache] = useState<number>(1);
+  const [symptomSleep, setSymptomSleep] = useState<number>(4);
+  const [symptomSaved, setSymptomSaved] = useState<boolean>(false);
+
+  // Flight deck 1-6 domain hotkeys
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === '1') { setSelectedDomain('cardiovascular'); avionicsAudio.playClick(); }
+      if (e.key === '2') { setSelectedDomain('sleep'); avionicsAudio.playClick(); }
+      if (e.key === '3') { setSelectedDomain('cognitive'); avionicsAudio.playClick(); }
+      if (e.key === '4') { setSelectedDomain('musculoskeletal'); avionicsAudio.playClick(); }
+      if (e.key === '5') { setSelectedDomain('immune'); avionicsAudio.playClick(); }
+      if (e.key === '6') { setSelectedDomain('radiation'); avionicsAudio.playClick(); }
+      if (e.key.toLowerCase() === 's') { setShowSymptomModal(true); avionicsAudio.playClick(); }
+      if (e.key === 'Escape') {
+        setExpandedDomain(null);
+        setShowRationaleModal(false);
+        setShowSymptomModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Helper to find metric
   const getMetric = (id: string) => metrics.find((m) => m.id === id);
@@ -226,9 +257,9 @@ export const OperationalOverview: React.FC<OperationalOverviewProps> = ({
   const range = chartMax - chartMin || 1;
 
   const svgWidth = 720;
-  const svgHeight = 145;
+  const svgHeight = 115;
   const padX = 36;
-  const padY = 14;
+  const padY = 12;
   const plotW = svgWidth - padX * 2;
   const plotH = svgHeight - padY * 2;
 
@@ -806,15 +837,32 @@ export const OperationalOverview: React.FC<OperationalOverviewProps> = ({
           <div className="hidden sm:flex items-center gap-1.5 bg-[#F4F5F7] border border-[#E2E5E9] rounded-lg px-2.5 py-1 text-xs">
             <Clock className="w-3.5 h-3.5 text-[#5A6068]" />
             <span className="text-xs text-[#5A6068] font-semibold">Next:</span>
-            <span className="font-semibold text-xs text-[#1E2227] max-w-[140px] truncate">
-              {activeAlerts.length > 0 ? 'Protocol Triage' : 'PVT Test (21:00 MET)'}
+            <span className="font-semibold text-xs text-[#1E2227] max-w-[130px] truncate">
+              {activeAlerts.length > 0 ? 'Protocol Triage' : 'PVT Test (21:00)'}
             </span>
           </div>
+
+          {/* Quick Astronaut Subjective Log Button */}
+          <button
+            onClick={() => {
+              avionicsAudio.playClick();
+              setShowSymptomModal(true);
+            }}
+            className="bg-[#FFFFFF] hover:bg-[#F3F4F6] text-[#1E2227] border border-[#E2E5E9] font-bold text-xs px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
+            title="Log Sol 184 Space Symptoms: SMS, SANS, headache, sleep (Hotkey: S)"
+          >
+            <FileText className="w-3.5 h-3.5 text-[#D95A11]" />
+            <span className="hidden md:inline">Log Vitals</span>
+            <span className="text-[10px] font-mono text-[#8C939E] font-semibold">[S]</span>
+          </button>
 
           {/* Direct Dashboard CTA Button */}
           {activeAlerts.length > 0 ? (
             <button
-              onClick={() => onOpenProtocol(activeAlerts[0].id)}
+              onClick={() => {
+                avionicsAudio.playClick();
+                onOpenProtocol(activeAlerts[0].id);
+              }}
               className="bg-[#D95A11] hover:bg-[#B84807] text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <span>Open Protocol</span>
@@ -822,7 +870,10 @@ export const OperationalOverview: React.FC<OperationalOverviewProps> = ({
             </button>
           ) : (
             <button
-              onClick={onOpenAssessments}
+              onClick={() => {
+                avionicsAudio.playClick();
+                onOpenAssessments();
+              }}
               className="bg-[#1E2227] hover:bg-[#2F363F] text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <span>Launch PVT Test</span>
@@ -845,7 +896,7 @@ export const OperationalOverview: React.FC<OperationalOverviewProps> = ({
         <div className="lg:col-span-8 flex flex-col gap-2">
           {/* 6 DOMAIN WIDGETS (Responsive Grid, Clean & Scaled Up) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 min-[1380px]:grid-cols-3 gap-2.5">
-            {(Object.keys(domainConfigs) as DomainId[]).map((domId) => {
+            {(Object.keys(domainConfigs) as DomainId[]).map((domId, domIdx) => {
               const config = domainConfigs[domId];
               const isSelected = selectedDomain === domId;
               const isTriggered = isDomainTriggered(domId);
@@ -876,7 +927,10 @@ export const OperationalOverview: React.FC<OperationalOverviewProps> = ({
               return (
                 <div
                   key={domId}
-                  onClick={() => setSelectedDomain(domId)}
+                  onClick={() => {
+                    setSelectedDomain(domId);
+                    avionicsAudio.playClick();
+                  }}
                   className={`bg-[#FFFFFF] border rounded-xl p-2.5 transition-all cursor-pointer relative flex flex-col justify-between ${
                     isTriggered
                       ? 'border-[#D95A11] shadow-md ring-2 ring-[#D95A11] bg-[#FFFBF8]'
@@ -885,7 +939,7 @@ export const OperationalOverview: React.FC<OperationalOverviewProps> = ({
                       : 'border-[#E2E5E9] hover:border-[#D1D5DB] hover:bg-[#F8F9FA]'
                   }`}
                 >
-                  {/* Top Line: Domain Icon with subtle tint + Domain Title (15-16px) + Status Badge + Expand */}
+                  {/* Top Line: Domain Icon with subtle tint + Domain Title (15-16px) + Key Badge + Status Badge + Expand */}
                   <div className="flex items-center justify-between gap-1.5">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div
@@ -899,6 +953,9 @@ export const OperationalOverview: React.FC<OperationalOverviewProps> = ({
                       </div>
                       <span className="text-[15px] font-bold text-[#1E2227] truncate tracking-tight">
                         {config.title}
+                      </span>
+                      <span className="text-[10px] font-mono font-semibold px-1 py-0.5 text-[#8C939E] bg-[#F1F3F5] rounded border border-[#E2E5E9] shrink-0" title={`Press [${domIdx + 1}] on keyboard`}>
+                        {domIdx + 1}
                       </span>
                     </div>
 
@@ -1842,6 +1899,202 @@ export const OperationalOverview: React.FC<OperationalOverviewProps> = ({
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          ASTRONAUT RAPID SYMPTOM & VITALS LOG MODAL [S]
+          Operational in-flight crew self-report tool
+          ======================================================== */}
+      {showSymptomModal && (
+        <div className="fixed inset-0 z-50 bg-[#0B0F14]/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#E2E5E9] space-y-5 animate-in fade-in zoom-in duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2E5E9]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#FFF7ED] text-[#D95A11] flex items-center justify-center font-mono font-bold text-sm">
+                  S
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1E2227]">
+                    Rapid In-Flight Subjective Assessment
+                  </h3>
+                  <p className="text-xs text-[#5A6068] font-mono">
+                    Astronaut Self-Report • MET +184d 14:25
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSymptomModal(false)}
+                className="p-1.5 text-[#5A6068] hover:text-[#1E2227] rounded-lg hover:bg-[#F3F4F6] transition-colors cursor-pointer"
+                title="Close [Esc]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Assessment Sliders & Scales */}
+            <div className="space-y-4">
+              {/* 1. Space Motion Sickness */}
+              <div className="bg-[#F8F9FA] p-3.5 rounded-xl border border-[#E2E5E9]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#1E2227]">
+                    1. Space Motion Sickness (SMS Scale)
+                  </label>
+                  <span className="text-xs font-mono font-bold text-[#D95A11]">
+                    {symptomSms === 0 ? '0: None' : symptomSms === 1 ? '1: Mild Malaise' : symptomSms === 2 ? '2: Moderate Nausea' : symptomSms === 3 ? '3: Vomiting / Lability' : '4+: Severe Incapacitation'}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={4}
+                  step={1}
+                  value={symptomSms}
+                  onChange={(e) => {
+                    setSymptomSms(Number(e.target.value));
+                    avionicsAudio.playClick();
+                  }}
+                  className="w-full accent-[#D95A11] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-[#5A6068] font-mono mt-1">
+                  <span>0 - Nominal</span>
+                  <span>1 - Mild</span>
+                  <span>2 - Moderate</span>
+                  <span>3 - Emended</span>
+                  <span>4 - Severe</span>
+                </div>
+              </div>
+
+              {/* 2. Cephalic Fluid Shift / SANS Visual Sensation */}
+              <div className="bg-[#F8F9FA] p-3.5 rounded-xl border border-[#E2E5E9]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#1E2227]">
+                    2. Cephalic Congestion & SANS Sensation
+                  </label>
+                  <span className="text-xs font-mono font-bold text-[#2563EB]">
+                    {symptomHeadache === 0 ? '0: Normal Head Comfort' : symptomHeadache === 1 ? '1: Mild Fullness' : symptomHeadache === 2 ? '2: Noticeable Visual Haze' : '3+: Severe SANS / Pain'}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={3}
+                  step={1}
+                  value={symptomHeadache}
+                  onChange={(e) => {
+                    setSymptomHeadache(Number(e.target.value));
+                    avionicsAudio.playClick();
+                  }}
+                  className="w-full accent-[#2563EB] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-[#5A6068] font-mono mt-1">
+                  <span>0 - Clear</span>
+                  <span>1 - Sinus Fullness</span>
+                  <span>2 - Focal Blur</span>
+                  <span>3 - Severe Pain/Papilledema</span>
+                </div>
+              </div>
+
+              {/* 3. Spinal Decompression / Lumbar Backache */}
+              <div className="bg-[#F8F9FA] p-3.5 rounded-xl border border-[#E2E5E9]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#1E2227]">
+                    3. Microgravity Spinal Elongation Ache
+                  </label>
+                  <span className="text-xs font-mono font-bold text-[#BE123C]">
+                    {symptomBackache === 0 ? '0: No Pain' : symptomBackache === 1 ? '1: Mild Tightness' : symptomBackache === 2 ? '2: Constant Ache' : '3+: Countermeasure Impairment'}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={3}
+                  step={1}
+                  value={symptomBackache}
+                  onChange={(e) => {
+                    setSymptomBackache(Number(e.target.value));
+                    avionicsAudio.playClick();
+                  }}
+                  className="w-full accent-[#BE123C] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-[#5A6068] font-mono mt-1">
+                  <span>0 - None</span>
+                  <span>1 - Lumbar Tightness</span>
+                  <span>2 - Moderate Ache</span>
+                  <span>3 - Severe Spasm</span>
+                </div>
+              </div>
+
+              {/* 4. Subjective Sleep Quality */}
+              <div className="bg-[#F8F9FA] p-3.5 rounded-xl border border-[#E2E5E9]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#1E2227]">
+                    4. Sleep Restfulness Perception
+                  </label>
+                  <span className="text-xs font-mono font-bold text-[#059669]">
+                    {symptomSleep}/5 ({symptomSleep <= 2 ? 'Restless / Fragmented' : symptomSleep === 3 ? 'Adequate' : 'High Quality'})
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={5}
+                  step={1}
+                  value={symptomSleep}
+                  onChange={(e) => {
+                    setSymptomSleep(Number(e.target.value));
+                    avionicsAudio.playClick();
+                  }}
+                  className="w-full accent-[#059669] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-[#5A6068] font-mono mt-1">
+                  <span>1 - Fragmented</span>
+                  <span>2 - Fitful</span>
+                  <span>3 - Neutral</span>
+                  <span>4 - Good</span>
+                  <span>5 - Deep Rest</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Notification / Success Status */}
+            {symptomSaved && (
+              <div className="p-2.5 rounded-lg bg-[#F0FDF4] border border-[#BBF7D0] flex items-center gap-2 text-xs text-[#15803D] font-bold">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>Crew Observation Recorded & Synced with Clinical Record</span>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-[#E2E5E9]">
+              <span className="text-[11px] text-[#5A6068]">
+                Hotkeys: <kbd className="font-mono bg-[#F1F3F5] px-1 py-0.5 rounded border border-[#E2E5E9]">Esc</kbd> Cancel
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowSymptomModal(false)}
+                  className="px-3 py-1.5 rounded-lg border border-[#E2E5E9] hover:bg-[#F3F4F6] text-xs font-bold text-[#5A6068] transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setSymptomSaved(true);
+                    avionicsAudio.playStepSuccess();
+                    setTimeout(() => {
+                      setSymptomSaved(false);
+                      setShowSymptomModal(false);
+                    }, 1000);
+                  }}
+                  className="px-4 py-1.5 rounded-lg bg-[#D95A11] hover:bg-[#C24E0E] text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Log Telemetry Entry</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

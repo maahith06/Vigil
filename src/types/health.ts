@@ -1,4 +1,5 @@
 export type SeverityLevel = 'nominal' | 'advisory' | 'warning' | 'critical';
+export type DisplayMode = 'daylight' | 'night' | 'glare';
 
 export type DataProvenance = 
   | 'direct_continuous'    // Wearable bioharness, continuous optical, environmental gas analyzer

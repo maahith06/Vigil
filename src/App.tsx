@@ -17,8 +17,10 @@ import {
   MissionScenarioId,
   PvtAssessmentResult,
   DailySymptomReport,
+  DisplayMode,
 } from './types/health';
 import { applyScenarioToState } from './data/scenarioData';
+import { avionicsAudio } from './utils/audioFeedback';
 import { HeaderMissionBar } from './components/HeaderMissionBar';
 import { OperationalOverview } from './components/OperationalOverview';
 import { DeepAnalyticsView } from './components/DeepAnalyticsView';
@@ -26,6 +28,7 @@ import { DecisionSupportView } from './components/DecisionSupportView';
 import { AssessmentsView } from './components/AssessmentsView';
 import { LifeSupportSensorsView } from './components/LifeSupportSensorsView';
 import { FlightSurgeonAssistantModal } from './components/FlightSurgeonAssistantModal';
+import { Keyboard, X } from 'lucide-react';
 
 export default function App() {
   const [missionContext, setMissionContext] = useState<MissionContext>(INITIAL_MISSION_CONTEXT);
@@ -41,10 +44,81 @@ export default function App() {
   const [selectedMetricId, setSelectedMetricId] = useState<string>('hr_resting');
   const [toastNotification, setToastNotification] = useState<string | null>(null);
 
+  // Spaceflight Display Modes: Daylight, Night Cockpit (circadian red), High-Glare Solar
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('daylight');
+  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(avionicsAudio.getMuted());
+  const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
+
   const showToast = (msg: string) => {
     setToastNotification(msg);
     setTimeout(() => setToastNotification(null), 4000);
   };
+
+  const handleToggleDisplayMode = (mode: DisplayMode) => {
+    setDisplayMode(mode);
+    avionicsAudio.playClick();
+    showToast(`Display mode: ${mode.toUpperCase()}`);
+  };
+
+  const handleToggleAudio = () => {
+    const nextMuted = avionicsAudio.toggleMute();
+    setIsAudioMuted(nextMuted);
+    if (!nextMuted) {
+      avionicsAudio.playClick();
+      showToast('Avionics acoustic telemetry feedback enabled.');
+    } else {
+      showToast('Avionics acoustic telemetry feedback muted.');
+    }
+  };
+
+  // Global Flight Deck Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShowHotkeysModal((prev) => !prev);
+        avionicsAudio.playClick();
+      } else if (e.key === 'Escape') {
+        setShowHotkeysModal(false);
+      } else if (e.key.toLowerCase() === 'm') {
+        handleToggleAudio();
+      } else if (e.key.toLowerCase() === 'n') {
+        setDisplayMode((prev) => {
+          const next: DisplayMode =
+            prev === 'daylight' ? 'night' : prev === 'night' ? 'glare' : 'daylight';
+          avionicsAudio.playClick();
+          showToast(`Display mode: ${next.toUpperCase()}`);
+          return next;
+        });
+      } else if (e.key.toLowerCase() === 'o') {
+        setActiveTab('overview');
+        avionicsAudio.playClick();
+      } else if (e.key.toLowerCase() === 'd') {
+        setActiveTab('analytics');
+        avionicsAudio.playClick();
+      } else if (e.key.toLowerCase() === 'p') {
+        setActiveTab('protocols');
+        avionicsAudio.playClick();
+      } else if (e.key.toLowerCase() === 'a') {
+        setActiveTab('assessments');
+        avionicsAudio.playClick();
+      } else if (e.key.toLowerCase() === 'h') {
+        setActiveTab('sensors');
+        avionicsAudio.playClick();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Switch Scenario handler
   const handleSelectScenario = useCallback((scenarioId: MissionScenarioId) => {
@@ -339,7 +413,10 @@ export default function App() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-[#F4F5F7] text-[#1E2227] flex flex-col font-sans selection:bg-[#D95A11]/15 selection:text-[#B84807]">
+    <div
+      data-mode={displayMode}
+      className="min-h-screen bg-[#F4F5F7] text-[#1E2227] flex flex-col font-sans selection:bg-[#D95A11]/15 selection:text-[#B84807]"
+    >
       {/* Top Header & Simulation Controller */}
       <HeaderMissionBar
         missionContext={missionContext}
@@ -350,6 +427,18 @@ export default function App() {
         onResetSimulation={handleResetSimulation}
         activeAlertCount={activeAlertCount}
         criticalAlertCount={criticalAlertCount}
+        displayMode={displayMode}
+        onToggleDisplayMode={handleToggleDisplayMode}
+        isAudioMuted={isAudioMuted}
+        onToggleAudio={handleToggleAudio}
+        onAcknowledgeAlarm={() => {
+          avionicsAudio.playStepSuccess();
+          showToast('Master Caution & Warning Acknowledged.');
+        }}
+        onOpenHotkeys={() => {
+          setShowHotkeysModal(true);
+          avionicsAudio.playClick();
+        }}
       />
 
       {/* Main Container Content */}
@@ -431,6 +520,143 @@ export default function App() {
       <footer className="border-t border-[#E2E5E9] bg-[#FFFFFF] py-1 px-4 text-center text-[10px] font-mono text-[#5A6068] shrink-0">
         VIGIL Autonomous Spaceflight HMI • NASA Space Apps Challenge Autonomous Medicine System • MET +184 • Deep-Space Cruise
       </footer>
+
+      {/* ========================================================
+          FLIGHT DECK PHYSICAL KEYBOARD SHORTCUTS MODAL [?]
+          Operational microgravity rapid-access reference
+          ======================================================== */}
+      {showHotkeysModal && (
+        <div className="fixed inset-0 z-50 bg-[#0B0F14]/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFFFF] rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-[#E2E5E9] space-y-4 animate-in fade-in zoom-in duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2E5E9]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#F8F9FA] text-[#1E2227] flex items-center justify-center border border-[#E2E5E9]">
+                  <Keyboard className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1E2227]">
+                    Flight Deck Operational Hotkeys
+                  </h3>
+                  <p className="text-xs text-[#5A6068] font-mono">
+                    Tactile microgravity controls (Designed for zero-g glove use)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowHotkeysModal(false)}
+                className="p-1.5 text-[#5A6068] hover:text-[#1E2227] rounded-lg hover:bg-[#F3F4F6] transition-colors cursor-pointer"
+                title="Close [Esc]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Hotkeys Grid */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              {/* Column 1: Domain Selection */}
+              <div className="p-3 bg-[#F8F9FA] rounded-xl border border-[#E2E5E9] space-y-2">
+                <span className="font-bold font-mono text-[11px] text-[#1E2227] uppercase tracking-wider block">
+                  Health Domains
+                </span>
+                <div className="space-y-1.5 text-[#475569]">
+                  <div className="flex items-center justify-between">
+                    <span>Cardiovascular</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">1</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Sleep & Recovery</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">2</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Cognitive / PVT</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">3</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Musculoskeletal</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">4</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Immune & Hydration</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">5</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Radiation Dosimetry</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">6</kbd>
+                  </div>
+                </div>
+              </div>
+
+              {/* Column 2: Navigation & Systems */}
+              <div className="p-3 bg-[#F8F9FA] rounded-xl border border-[#E2E5E9] space-y-2">
+                <span className="font-bold font-mono text-[11px] text-[#1E2227] uppercase tracking-wider block">
+                  Consoles & Avionics
+                </span>
+                <div className="space-y-1.5 text-[#475569]">
+                  <div className="flex items-center justify-between">
+                    <span>Operations HUD</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">O</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Deep Telemetry</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">D</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Decision Protocols</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">P</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>PVT & Assessments</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">A</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>ECLSS Sensors</span>
+                    <kbd className="font-mono bg-[#FFFFFF] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">H</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Log Vitals / Symptoms</span>
+                    <kbd className="font-mono bg-[#FFF7ED] px-1.5 py-0.5 rounded border border-[#FED7AA] font-bold text-[#D95A11]">S</kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Microgravity Avionics Controls */}
+            <div className="p-3 bg-[#FFFBF8] rounded-xl border border-[#FEEAD9] text-xs space-y-2">
+              <span className="font-bold font-mono text-[11px] text-[#D95A11] uppercase tracking-wider block">
+                Lighting & Audio Controls
+              </span>
+              <div className="grid grid-cols-3 gap-2 text-[#475569]">
+                <div className="bg-[#FFFFFF] p-2 rounded-lg border border-[#FEEAD9] flex items-center justify-between">
+                  <span>Display Mode</span>
+                  <kbd className="font-mono bg-[#F8F9FA] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">N</kbd>
+                </div>
+                <div className="bg-[#FFFFFF] p-2 rounded-lg border border-[#FEEAD9] flex items-center justify-between">
+                  <span>Audio Feedback</span>
+                  <kbd className="font-mono bg-[#F8F9FA] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">M</kbd>
+                </div>
+                <div className="bg-[#FFFFFF] p-2 rounded-lg border border-[#FEEAD9] flex items-center justify-between">
+                  <span>Dismiss / Silence</span>
+                  <kbd className="font-mono bg-[#F8F9FA] px-1.5 py-0.5 rounded border border-[#E2E5E9] font-bold text-[#1E2227]">Esc</kbd>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-[#E2E5E9]">
+              <span className="text-[11px] text-[#5A6068]">
+                Press <kbd className="font-mono bg-[#F1F3F5] px-1 py-0.5 rounded border border-[#E2E5E9]">?</kbd> anytime to open this guide
+              </span>
+              <button
+                onClick={() => setShowHotkeysModal(false)}
+                className="px-4 py-1.5 rounded-lg bg-[#1E2227] hover:bg-[#2F363F] text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

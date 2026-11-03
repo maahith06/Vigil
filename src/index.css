@@ -8,6 +8,47 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Night / Dark Cockpit Mode (Circadian Red-Shield & Dark Adaptation) */
+  [data-mode="night"] {
+    color-scheme: dark;
+    background-color: #0E1114;
+    color: #E2E8F0;
+  }
+  [data-mode="night"] body {
+    background-color: #0E1114;
+    color: #E2E8F0;
+  }
+  [data-mode="night"] .bg-\[\#FFFFFF\] {
+    background-color: #161A1E !important;
+  }
+  [data-mode="night"] .bg-\[\#F4F5F7\],
+  [data-mode="night"] .bg-\[\#F8F9FA\] {
+    background-color: #1B2026 !important;
+  }
+  [data-mode="night"] .border-\[\#E2E5E9\],
+  [data-mode="night"] .border-\[\#D6CEC2\] {
+    border-color: #2D343D !important;
+  }
+  [data-mode="night"] .text-\[\#1E2227\],
+  [data-mode="night"] .text-\[\#26231F\] {
+    color: #F1F5F9 !important;
+  }
+  [data-mode="night"] .text-\[\#5A6068\],
+  [data-mode="night"] .text-\[\#6B655E\] {
+    color: #94A3B8 !important;
+  }
+
+  /* High Glare / Direct Solar Contrast Mode */
+  [data-mode="glare"] .border-\[\#E2E5E9\],
+  [data-mode="glare"] .border {
+    border-width: 2px !important;
+    border-color: #000000 !important;
+  }
+  [data-mode="glare"] .text-\[\#1E2227\] {
+    color: #000000 !important;
+    font-weight: 800 !important;
+  }
 }
 
 /* Custom scrollbar for clean aerospace panels */
@@ -24,4 +65,11 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #9CA3AF;
+}
+
+[data-mode="night"] ::-webkit-scrollbar-track {
+  background: #0E1114;
+}
+[data-mode="night"] ::-webkit-scrollbar-thumb {
+  background: #334155;
 }
