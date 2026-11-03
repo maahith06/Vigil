@@ -1,14 +1,28 @@
 {
-  "name": "react-example",
-  "private": true,
-  "version": "0.0.0",
+  "name": "vigil-astronaut-health",
+  "version": "1.0.0",
+  "description": "VIGIL — Autonomous Astronaut Health Management & Decision Support System for long-duration deep-space exploration (NASA Space Apps Challenge)",
+  "license": "MIT",
   "type": "module",
+  "keywords": [
+    "nasa-space-apps",
+    "astronaut-health",
+    "aerospace-medicine",
+    "telemetry",
+    "clinical-decision-support",
+    "psychomotor-vigilance",
+    "spaceflight",
+    "react",
+    "typescript",
+    "tailwind-css"
+  ],
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test src/utils/mathAndBaselines.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

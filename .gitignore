@@ -1,8 +1,44 @@
+# Dependencies
 node_modules/
+
+# Production builds
 build/
 dist/
-coverage/
-.DS_Store
-*.log
-.env*
+dist-ssr/
+
+# Environment files and credentials
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 !.env.example
+*.pem
+*.key
+*.cert
+*.crt
+
+# AI Studio and test artifacts
+.aistudio/
+.playwright-cli/
+test-results/
+playwright-report/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Coverage
+coverage/
